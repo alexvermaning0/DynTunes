@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Deterministic>true</Deterministic>
+        <UseWindowsForms>false</UseWindowsForms>
+        <UseWPF>false</UseWPF>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(GamePath)'==''">
+        <GamePath>$(MSBuildThisFileDirectory)../Resonite/</GamePath>
+        <GamePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</GamePath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="Elements.Core">
+            <HintPath>$(GamePath)Elements.Core.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="FrooxEngine">
+            <HintPath>$(GamePath)FrooxEngine.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\DynTunes\DynTunes.csproj">
+        <Private>false</Private>
+      </ProjectReference>
+    </ItemGroup>
+
+    <PropertyGroup>
+        <CopyToMods Condition="'$(CopyToMods)'==''">true</CopyToMods>
+    </PropertyGroup>
+
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(CopyToMods)'=='true'">
+        <Message Text="Attempting to copy $(TargetFileName) to $(GamePath)rml_libs" Importance="high" />
+        <Copy SourceFiles="$(TargetDir)$(TargetFileName)" DestinationFolder="$(GamePath)rml_libs" ContinueOnError="true" />
+    </Target>
+</Project>
