@@ -61,46 +61,89 @@ public partial class DynTunes : ResoniteMod
                 return null;
             }
 
-            Assembly windowsAssembly = Assembly.LoadFrom(assemblyPath);
-            
-            // Try multiple possible type names
-            string[] possibleTypeNames = new[]
+            // Set up assembly resolver to help find dependencies
+            string rmlLibsPath = Path.GetDirectoryName(assemblyPath) ?? "";
+            string mainAssemblyPath = Path.GetDirectoryName(typeof(DynTunes).Assembly.Location) ?? "";
+
+            ResolveEventHandler? assemblyResolver = (sender, args) =>
             {
-                "DynTunes.Windows.Connectors.WindowsMusicConnector",
-                "DynTunes.Connectors.WindowsMusicConnector"
+                AssemblyName requestedAssembly = new AssemblyName(args.Name);
+
+                // If requesting the main DynTunes assembly, return it
+                if (requestedAssembly.Name == "DynTunes")
+                {
+                    return typeof(DynTunes).Assembly;
+                }
+
+                // Look for the assembly in rml_libs directory (for Windows SDK dependencies)
+                string fileName = requestedAssembly.Name + ".dll";
+                string fullPath = Path.Combine(rmlLibsPath, fileName);
+
+                if (File.Exists(fullPath))
+                {
+                    try
+                    {
+                        return Assembly.LoadFrom(fullPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Warn($"Failed to load assembly {fileName}: {ex.Message}");
+                    }
+                }
+
+                return null;
             };
 
-            Type? connectorType = null;
-            foreach (string typeName in possibleTypeNames)
-            {
-                connectorType = windowsAssembly.GetType(typeName);
-                if (connectorType != null)
-                {
-                    Msg($"Found Windows connector type: {typeName}");
-                    break;
-                }
-            }
+            AppDomain.CurrentDomain.AssemblyResolve += assemblyResolver;
 
-            if (connectorType == null)
+            try
             {
-                Warn("WindowsMusicConnector type not found in DynTunes.Windows.dll");
-                Warn("Available types:");
-                foreach (Type type in windowsAssembly.GetTypes())
+                Assembly windowsAssembly = Assembly.LoadFrom(assemblyPath);
+
+                // Try multiple possible type names
+                string[] possibleTypeNames = new[]
                 {
-                    Warn($"  - {type.FullName}");
+                    "DynTunes.Windows.Connectors.WindowsMusicConnector",
+                    "DynTunes.Connectors.WindowsMusicConnector"
+                };
+
+                Type? connectorType = null;
+                foreach (string typeName in possibleTypeNames)
+                {
+                    connectorType = windowsAssembly.GetType(typeName);
+                    if (connectorType != null)
+                    {
+                        Msg($"Found Windows connector type: {typeName}");
+                        break;
+                    }
                 }
+
+                if (connectorType == null)
+                {
+                    Warn("WindowsMusicConnector type not found in DynTunes.Windows.dll");
+                    Warn("Available types:");
+                    foreach (Type type in windowsAssembly.GetTypes())
+                    {
+                        Warn($"  - {type.FullName}");
+                    }
+                    return null;
+                }
+
+                object? instance = Activator.CreateInstance(connectorType);
+                if (instance is IMusicConnector connector)
+                {
+                    Msg("Successfully loaded Windows Media connector");
+                    return connector;
+                }
+
+                Warn("Failed to create Windows connector instance");
                 return null;
             }
-
-            object? instance = Activator.CreateInstance(connectorType);
-            if (instance is IMusicConnector connector)
+            finally
             {
-                Msg("Successfully loaded Windows Media connector");
-                return connector;
+                // Clean up the assembly resolver
+                AppDomain.CurrentDomain.AssemblyResolve -= assemblyResolver;
             }
-
-            Warn("Failed to create Windows connector instance");
-            return null;
         }
         catch (Exception ex)
         {

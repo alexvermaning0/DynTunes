@@ -7,6 +7,7 @@
         <Deterministic>true</Deterministic>
         <UseWindowsForms>false</UseWindowsForms>
         <UseWPF>false</UseWPF>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(GamePath)'==''">
@@ -36,7 +37,13 @@
     </PropertyGroup>
 
     <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(CopyToMods)'=='true'">
-        <Message Text="Attempting to copy $(TargetFileName) to $(GamePath)rml_libs" Importance="high" />
+        <Message Text="Attempting to copy $(TargetFileName) and dependencies to $(GamePath)rml_libs" Importance="high" />
         <Copy SourceFiles="$(TargetDir)$(TargetFileName)" DestinationFolder="$(GamePath)rml_libs" ContinueOnError="true" />
+        <!-- Copy all Windows SDK runtime dependencies -->
+        <ItemGroup>
+            <WindowsSDKDlls Include="$(TargetDir)Microsoft.Windows.SDK.NET.dll" />
+            <WindowsSDKDlls Include="$(TargetDir)WinRT.Runtime.dll" />
+        </ItemGroup>
+        <Copy SourceFiles="@(WindowsSDKDlls)" DestinationFolder="$(GamePath)rml_libs" ContinueOnError="true" />
     </Target>
 </Project>
